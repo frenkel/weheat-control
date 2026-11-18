@@ -77,6 +77,30 @@ Property-only intent is persisted before submission and requires exact integer
 readback to become verified success. Static evidence does not establish current
 backend acceptance or a particular installation's property support.
 
+### Manual DHW schedule (user-confirmed, not app-traced)
+
+Live readback contains `dhwScheduleEnabled` (2 = manual schedule),
+`dhwScheduleSafetyTemperature` and `dhwSchedule{Weekday}Target` arrays of 96
+integers. The installation owner confirmed the encoding against the app: one
+slot per quarter hour from 00:00, value = target °C × 2 (100 = 50 °C,
+110 = 55 °C), 0 = no target. This is **not** recovered from the saved
+disassembly. Writes always contain all seven `DhwSchedule{Weekday}Target` arrays (96 slots
+each), with untouched weekdays re-sent from fresh readback; a partial readback
+blocks the write. Selecting the manual schedule sends `DhwScheduleEnabled: 2`
+plus the complete current week, without properties. Key names follow the
+established capitalised-key convention; backend acceptance is unverified until
+a real request has been submitted and read back. The 40–60 °C write range
+reuses the fixed-target app range; the app's own schedule bounds are unknown, so
+readback values up to 80 °C are displayed, and may be re-sent unchanged, but
+cannot be newly written. Enabling requires all seven arrays and at least one
+period. The safety temperature is not writable.
+
+The **Hot-water mode** select mirrors the app's three choices (0 fixed,
+2 manual schedule, 3 Intelligence). Its Intelligence option uses the traced
+#32878/#21587 payload (mode 3 plus `DhwComfortPreference`) and its fixed option
+the traced #32888 payload (mode 0 only). The existing Intelligence switch is
+kept for entity-ID compatibility.
+
 ### Cooling: traced but deliberately not exposed
 
 #12765 defines CoolingEnabled Unset=0, Off=1, Enabled=2; #12763 defines
@@ -99,6 +123,8 @@ switch, installer/protection override or guessed restore behavior is added.
 | Day quiet | `performanceModePreset` → `PerformanceModePreset` | #32805:23–43, #32837:22–59, #32827:20–28. Values 0 Normal, 1 Background chatter, 2 Light rain, 3 Library, 4 Whisper. |
 | Scheduled night quiet | `silentHoursScheduledPreset` → `SilentHoursScheduledPreset` | #32807:23–55, #32854:23–81, #32819:5–21, #32820:142–147. Values 0 schedule disabled, 1 Normal, 2 Background chatter, 3 Light rain, 4 Library, 5 off during scheduled hours, 6 Whisper, 7 Minimum. Value 7 is model-restricted and not exposed without verified model identity. |
 | Quiet schedule | `silentHours/Minutes{Weekday}{Start/Stop}` → same names capitalized | Require all 28 current fields. Edit one hour/minute pair, preserving other weekdays. Device-local time semantics; no inferred timezone conversion. Entities enabled by default. |
+| DHW manual schedule | `dhwSchedule{Weekday}Target` → `DhwSchedule{Weekday}Target`; mode `DhwScheduleEnabled: 2` | 96 quarter-hour slots, °C × 2, 0 = none. User-confirmed encoding; write contract unverified. Always the complete week. |
+| DHW mode | `dhwScheduleEnabled` → `DhwScheduleEnabled` | Select: 0 fixed, 2 manual schedule (+ full week), 3 Intelligence (+ comfort property). |
 | Heating curve | `heatingCurveX/Y`, `controlMethod` → full `HeatingCurveY` plus unchanged `ControlMethod` | #32192:5–15, #32190:179–214. Water values 18–60 °C. Only methods 1/2; preserve full point order/array. Eligible number entities enabled by default. Re-read before modifying. |
 
 Bounds are app UI limits, not verified backend or manufacturer safety limits.
