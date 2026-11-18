@@ -8,6 +8,7 @@
           "submitting": "Submitting",
           "submission_uncertain": "Submission uncertain",
           "expired_outcome_unknown": "Expired boost acknowledged; original outcome unknown",
+          "released": "Released by user; original outcome unknown",
           "pending": "Pending",
           "executing": "Executing",
           "succeeded_unverified": "Succeeded, awaiting verification",
