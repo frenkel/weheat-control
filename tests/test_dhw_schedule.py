@@ -293,6 +293,9 @@ async def test_schedule_write_is_fresh_durable_and_readback_verified(hass):
         assert restored.operation["settings"] == command
         with (
             patch.object(api, "settings", new_callable=AsyncMock, return_value=data) as read,
+            patch.object(
+                api, "installations", new_callable=AsyncMock, return_value=[Installation("installation-1", "board-1")]
+            ),
             patch.object(api, "status", new_callable=AsyncMock, return_value=2),
         ):
             await restored._async_update_data()
