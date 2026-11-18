@@ -92,7 +92,6 @@ complete the reauthentication flow offered by Home Assistant.
 | Scheduled-night quiet preset | Separate night presets, including **Schedule disabled** and **Off during scheduled hours** |
 | Quiet schedule times | Start and stop for each weekday: 14 entities using device-local time |
 | Hot-water target temperature | 40–60 °C, in 1 °C steps, when DHW is available and uses fixed-setpoint mode |
-| Hot-water Weheat Intelligence | On: Intelligence for hot water. Off: fixed-temperature mode. Does not control space heating. |
 | Hot-water mode | The app's three choices: Fixed temperature, Manual schedule, Weheat Intelligence. Follows readback; Manual schedule requires at least one period |
 | Hot-water schedule per weekday | Seven readback sensors, e.g. `11:00–16:00 50 °C`, with the periods as attributes |
 | Action `weheat_control.set_dhw_schedule` | Replace the periods of one or more weekdays (quarter hours, 40–60 °C in 0.5 °C steps); always submits the complete week; does not change the hot-water mode |
@@ -137,8 +136,8 @@ temperatures outside 40–60 °C are rejected, never rounded. Times are
 device-local. Editing the schedule does not switch to it: choose **Manual
 schedule** in the **Hot-water mode** select. That sends mode 2 together with
 the complete current schedule, and is refused when the schedule has no periods.
-**Weheat Intelligence** sends the same mode-plus-comfort payload as the
-Intelligence switch; **Fixed temperature** sends only mode 0. Selecting the
+**Weheat Intelligence** sends mode 3 with the comfort property, like the
+app's Intelligence toggle; **Fixed temperature** sends only mode 0. Selecting the
 mode that is already active sends nothing. All schedule and mode writes use the same request
 journal, no-retry protection and exact readback verification as other controls.
 
@@ -154,14 +153,20 @@ journal, no-retry protection and exact readback verification as other controls.
   different settings. The model-specific “Minimum” preset is not exposed.
 
 The integration never automatically changes operating modes to make another control available.
-The explicit **Hot-water Weheat Intelligence** switch is the exception you control:
-on selects DHW mode 3, off selects fixed-setpoint mode 0 (not the previous manual
-schedule). It does not send a target-temperature or space-heating change. After
-fixed mode is confirmed, the hot-water temperature control becomes available.
-Enabling preserves a valid reported DHW comfort preference (Safe, Balanced, Eco),
+The explicit **Hot-water mode** select is the exception you control: Weheat
+Intelligence selects DHW mode 3, Fixed temperature selects mode 0 (not the
+previous manual schedule). It never sends a target-temperature or space-heating
+change. After fixed mode is confirmed, the hot-water temperature control becomes
+available. Choosing Intelligence preserves a valid reported DHW comfort code,
 otherwise uses the official app's Balanced default. Unknown DHW availability or
-mode makes the switch unavailable. Its state follows readback, not the submitted
+mode makes the select unavailable. Its state follows readback, not the submitted
 command; the same durable request gate and no-retry protection apply.
+
+The former **Hot-water Weheat Intelligence** switch has been removed because the
+Hot-water mode select covers it. Automations that used the switch should call
+`select.select_option` on the Hot-water mode entity with `Weheat Intelligence`
+or `Fixed temperature` instead. Home Assistant keeps the removed switch in the
+entity registry as unavailable; delete it there.
 The **Hot-water Intelligence comfort** select mirrors the app's Normaal/Zuinig
 choice. The app stores it in two places: the safety temperature in the settings
 (Normal 40 °C, Eco 10 °C) and a comfort code in the installation overview

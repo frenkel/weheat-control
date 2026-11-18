@@ -13,7 +13,7 @@ from .const import DOMAIN, TOKENS
 from .coordinator import WeheatCoordinator
 from .services import async_register_services
 
-PLATFORMS = [Platform.BUTTON, Platform.NUMBER, Platform.SELECT, Platform.SENSOR, Platform.SWITCH, Platform.TIME]
+PLATFORMS = [Platform.BUTTON, Platform.NUMBER, Platform.SELECT, Platform.SENSOR, Platform.TIME]
 type WeheatConfigEntry = ConfigEntry[WeheatCoordinator]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 

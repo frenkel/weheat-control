@@ -38,8 +38,9 @@ No whole-system setter was established in the saved disassembly. Do not expose
 a DHW switch under a whole-system name or assume changing `ControlMethod` is
 equivalent. Backend side effects and whole-system restoration remain unknown.
 
-The native **Hot-water Weheat Intelligence** switch implements this DHW-only
-contract. It preserves a valid reported comfort preference (1/2/3) or uses
+The **Hot-water mode** select implements this DHW-only contract (it replaced
+the earlier Intelligence switch, which duplicated it). It preserves a valid
+reported comfort code (1–3, 5, 6) or uses
 Balanced=2 when absent/invalid, following the app's default. Both settings and
 properties are persisted before submission; successful status is verified
 against their readback. Missing comfort readback leaves success unverified.
@@ -99,8 +100,8 @@ Intelligence comfort select does.
 The **Hot-water mode** select mirrors the app's three choices (0 fixed,
 2 manual schedule, 3 Intelligence). Its Intelligence option uses the traced
 #32878/#21587 payload (mode 3 plus `DhwComfortPreference`) and its fixed option
-the traced #32888 payload (mode 0 only). The existing Intelligence switch is
-kept for entity-ID compatibility.
+the traced #32888 payload (mode 0 only). The separate Intelligence switch was
+removed as a duplicate of these two options.
 
 ### DHW Intelligence comfort in the current app (observed)
 

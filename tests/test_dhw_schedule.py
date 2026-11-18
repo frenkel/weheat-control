@@ -1,4 +1,4 @@
-"""Manual DHW schedule: slot encoding, gates, switch, sensors and service."""
+"""Manual DHW schedule: slot encoding, gates, mode select, sensors and service."""
 
 import json
 from datetime import time as clock
