@@ -76,7 +76,7 @@ callback URLs are one-use and must belong to the current login attempt.
 
 Setup and polling do not change device settings. **Supported controls are ready
 immediately after login; using one sends a real settings request.** There is no
-YAML configuration or separate service to run.
+YAML configuration; the only action is the optional hot-water schedule editor.
 
 The integration does not collect your password. Login tokens are stored in Home
 Assistant's config entry; protect your configuration and backups. Do not share
@@ -93,6 +93,9 @@ complete the reauthentication flow offered by Home Assistant.
 | Quiet schedule times | Start and stop for each weekday: 14 entities using device-local time |
 | Hot-water target temperature | 40–60 °C, in 1 °C steps, when DHW is available and uses fixed-setpoint mode |
 | Hot-water Weheat Intelligence | On: Intelligence for hot water. Off: fixed-temperature mode. Does not control space heating. |
+| Hot-water mode | The app's three choices: Fixed temperature, Manual schedule, Weheat Intelligence. Follows readback; Manual schedule requires at least one period |
+| Hot-water schedule per weekday | Seven readback sensors, e.g. `11:00–16:00 50 °C`, with the periods as attributes |
+| Action `weheat_control.set_dhw_schedule` | Replace the periods of one or more weekdays (quarter hours, 40–60 °C in 0.5 °C steps); always submits the complete week; does not change the hot-water mode |
 | Hot-water Intelligence comfort | Normal or Eco, as in the app (safety temperature 40 or 10 °C plus the app's comfort code); available only in Intelligence mode |
 | Heating-curve points | 18–60 °C, in 1 °C steps, for Heating curve and On/off thermostat control methods |
 | Hot-water target readback | Requested target temperature, not measured water temperature |
@@ -104,6 +107,40 @@ complete the reauthentication flow offered by Home Assistant.
 Entities are enabled by default, but availability depends on the settings and
 capabilities returned by your installation. Heating-curve entities are added
 when a supported control method is detected.
+
+### Manual hot-water schedule
+
+The Weheat app's manual hot-water schedule stores 96 quarter-hour slots per
+weekday. Each slot holds a target temperature, or none; outside the scheduled
+periods only the (installer) safety temperature applies. Edit it with the
+**Set hot-water schedule** action, for example:
+
+```yaml
+action: weheat_control.set_dhw_schedule
+data:
+  config_entry_id: <your Weheat Control entry>
+  days: [monday, tuesday, wednesday, thursday, friday]
+  periods:
+    - start: "06:00"
+      end: "07:30"
+      temperature: 52.5
+    - start: "17:00"
+      end: "00:00"   # 00:00 as end means midnight
+      temperature: 50
+```
+
+The selected weekdays get exactly these periods. Every write submits the
+complete week: the other weekdays are re-sent unchanged from a fresh readback,
+and the write is refused if that readback is incomplete. An empty `periods`
+list clears the selected weekdays. Overlapping or non-quarter-hour periods and
+temperatures outside 40–60 °C are rejected, never rounded. Times are
+device-local. Editing the schedule does not switch to it: choose **Manual
+schedule** in the **Hot-water mode** select. That sends mode 2 together with
+the complete current schedule, and is refused when the schedule has no periods.
+**Weheat Intelligence** sends the same mode-plus-comfort payload as the
+Intelligence switch; **Fixed temperature** sends only mode 0. Selecting the
+mode that is already active sends nothing. All schedule and mode writes use the same request
+journal, no-retry protection and exact readback verification as other controls.
 
 ### Operating-mode restrictions
 
