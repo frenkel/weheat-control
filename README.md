@@ -100,6 +100,7 @@ complete the reauthentication flow offered by Home Assistant.
 | Heating control method and curve | Current method and curve values |
 | Settings request status | Tracks command progress, failures, and readback verification |
 | Acknowledge expired uncertain boost | Explicit local recovery for an expired boost with no request ID; never resends it |
+| Release unresolved settings request | One-click unblock after a non-boost request with an unknown outcome; never resends it |
 
 Entities are enabled by default, but availability depends on the settings and
 capabilities returned by your installation. Heating-curve entities are added
@@ -151,12 +152,19 @@ state updates.
 | A temperature control is unavailable | Check the operating-mode restrictions above and your current mode in the official app. |
 | Login fails | Start with the new login link and paste its complete callback URL. Never share that URL. |
 | Discovery fails during setup | Retry the installation step; the setup flow retains the exchanged login. |
-| A command remains unresolved or has an uncertain outcome | Check the official app and **Settings request status**. Further commands are blocked, even after a restart, to prevent accidental repeats. Do not delete storage or retry blindly. Use the official app if an urgent change is needed. |
+| A command remains unresolved or has an uncertain outcome | Further commands are blocked, even after a restart. For non-boost settings the block lifts automatically once the readback shows the requested values; otherwise check the official app and press **Release unresolved settings request**. Boosts keep the stricter recovery below. Do not delete storage. |
 | Status shows a mismatch | The reported settings differ from the request; this is not verified success. |
 | HTTP 505/version error | The cloud rejected the API protocol version. The integration uses the app's `app_consumer_v4.0.1` protocol header, not its `4.5.14` release number, and never retries commands automatically. |
 
 Request intent is saved before sending a command. A journal storage failure
-blocks submission. An unresolved request has no automatic reset or override.
+blocks submission. Non-boost settings are safe to send again (the same values
+change nothing), so an unresolved non-boost request is released automatically
+when a poll reads back exactly the requested settings and properties, even if
+the request-status lookup fails; the status then shows succeeded and verified.
+If the readback differs, **Release unresolved settings request** unblocks it
+explicitly: status `released`, the original outcome stays unknown, nothing is
+resent, and the record with its error details is kept and archived in the
+journal on the next command. A boost is never released this way.
 
 **Expired ID-less boost recovery:** after checking the official app, you may
 press **Acknowledge expired uncertain boost** in the device's diagnostic section.

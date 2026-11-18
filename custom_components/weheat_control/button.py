@@ -16,7 +16,7 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: WeheatConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     async_add_entities([BoostButton(entry.runtime_data, minutes) for minutes in (30, 60, 0)])
-    async_add_entities([AcknowledgeExpiredBoostButton(entry.runtime_data)])
+    async_add_entities([AcknowledgeExpiredBoostButton(entry.runtime_data), ReleaseUnresolvedButton(entry.runtime_data)])
 
 
 class AcknowledgeExpiredBoostButton(WeheatEntity, ButtonEntity):
@@ -29,6 +29,25 @@ class AcknowledgeExpiredBoostButton(WeheatEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.async_acknowledge_expired_boost()
+
+
+class ReleaseUnresolvedButton(WeheatEntity, ButtonEntity):
+    """One-click unblock for a non-boost request with an unknown outcome; sends nothing."""
+
+    _attr_name = "Release unresolved settings request"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:lock-open-variant-outline"
+
+    def __init__(self, coordinator: WeheatCoordinator) -> None:
+        super().__init__(coordinator, "release_unresolved_request")
+
+    @property
+    def available(self) -> bool:
+        # Local journal action: usable even when the cloud is unreachable.
+        return True
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_release_unresolved()
 
 
 class BoostButton(WeheatEntity, ButtonEntity):
