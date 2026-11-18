@@ -306,13 +306,14 @@ class DhwPlanDaySensor(_PlanEntity):
         self._offset = offset
         self._attr_name = f"Hot-water Intelligence plan {label.lower()}"
 
+    def _day(self) -> datetime:
+        return dt_util.start_of_local_day(dt_util.as_local(dt_util.utcnow())) + timedelta(days=self._offset, hours=12)
+
     def _windows(self) -> list[PlanWindow] | None:
         plan = self.plan
         if plan is None:
             return None
-        return plan.windows_on(
-            dt_util.start_of_local_day(dt_util.as_local(dt_util.utcnow())) + timedelta(days=self._offset, hours=12)
-        )
+        return plan.windows_on(self._day())
 
     @property
     def native_value(self) -> str | None:
@@ -320,6 +321,10 @@ class DhwPlanDaySensor(_PlanEntity):
         if windows is None:
             return None
         if not windows:
+            plan = self.plan
+            if plan is not None and not plan.has_day(self._day()):
+                # Weheat has not sent a plan for this day (yet): not the same as "no heating".
+                return "Not yet published" if self._offset > 0 else "No plan available"
             return "No planned heating"
         summary = ", ".join(window.label() for window in windows)
         return summary if len(summary) <= 255 else f"{len(windows)} planned moments"

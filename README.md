@@ -98,7 +98,7 @@ complete the reauthentication flow offered by Home Assistant.
 | Hot-water Intelligence comfort | Normal or Eco, as in the app (safety temperature 40 or 10 °C plus the app's comfort code); available only in Intelligence mode |
 | Heating-curve points | 18–60 °C, in 1 °C steps, for Heating curve and On/off thermostat control methods |
 | Hot-water Intelligence plan | Read-only. *Planned heating*, *Planned legionella* or *Standby*; its history is a coloured timeline |
-| Hot-water Intelligence plan yesterday / today / tomorrow | Planned heating moments per day, e.g. `22:00–00:00, 03:15–05:15` |
+| Hot-water Intelligence plan yesterday / today / tomorrow | Planned heating moments per day, e.g. `22:00–00:00, 03:15–05:15`; *Not yet published* until Weheat publishes tomorrow's plan (observed around 16:00) |
 | Hot-water Intelligence next planned heating | Start of the next planned moment |
 | Hot-water target readback | Requested target temperature, not measured water temperature |
 | Hot-water boost end | Reported boost end time |
@@ -170,7 +170,9 @@ entities:
 The plan's `reported_target_temperature` attribute is the `targetTemperatureC`
 value the plan reports. Its meaning is not established and it can differ from
 the hot-water temperature you see elsewhere, so it is not a sensor of its own.
-Outside Intelligence mode the plan sensors are unavailable.
+Weheat publishes the next day's plan in the afternoon (observed around 16:00);
+until then the tomorrow sensor shows *Not yet published*, which is different from
+*No planned heating*. Outside Intelligence mode the plan sensors are unavailable.
 
 ### Operating-mode restrictions
 

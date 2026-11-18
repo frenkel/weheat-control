@@ -56,6 +56,11 @@ class Plan:
     windows: tuple[PlanWindow, ...] = ()
     # targetTemperatureC per local date, as reported; its meaning is not established.
     target_temperatures: dict[str, float] = field(default_factory=dict)
+    # Local dates for which Weheat returned a plan item; tomorrow's appears in the afternoon.
+    days: frozenset[str] = frozenset()
+
+    def has_day(self, day: datetime) -> bool:
+        return dt_util.as_local(day).date().isoformat() in self.days
 
     def state_at(self, moment: datetime) -> str:
         for window in self.windows:
@@ -97,10 +102,13 @@ def parse_plan(items: Json) -> Plan:
         raise WeheatError("Unexpected hot-water plan response")
     windows: dict[tuple[datetime, bool], PlanWindow] = {}
     targets: dict[str, float] = {}
+    days: set[str] = set()
     for item in items:
         if not isinstance(item, dict):
             continue
         day = _timestamp(item.get("scheduleStartAt"))
+        if day is not None:
+            days.add(dt_util.as_local(day).date().isoformat())
         target = item.get("targetTemperatureC")
         if day is not None and type(target) in (int, float) and math.isfinite(target):  # type: ignore[arg-type]
             targets[dt_util.as_local(day).date().isoformat()] = round(float(target), 1)  # type: ignore[arg-type]
@@ -119,7 +127,7 @@ def parse_plan(items: Json) -> Plan:
                 continue
             # The same cycle can be listed by neighbouring days; keep it once.
             windows[(start, legionella)] = PlanWindow(start, start + timedelta(minutes=minutes), legionella)
-    return Plan(True, tuple(sorted(windows.values(), key=lambda window: window.start)), targets)
+    return Plan(True, tuple(sorted(windows.values(), key=lambda window: window.start)), targets, frozenset(days))
 
 
 class WeheatPlanCoordinator(DataUpdateCoordinator[Plan]):

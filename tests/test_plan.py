@@ -63,8 +63,9 @@ def test_live_response_parses_to_two_windows():
     )
     assert [window.label() for window in plan.windows] == ["22:00–00:00", "03:15–05:15"]
     assert plan.target_temperatures == {"2026-11-18": 52.9}
+    assert plan.days == frozenset({"2026-11-18"})
     assert parse_plan({"data": LIVE}) == plan
-    assert parse_plan([]) == Plan(True, (), {})
+    assert parse_plan([]) == Plan(True, (), {}, frozenset())
 
 
 def test_state_boundaries_and_next_start():
@@ -144,7 +145,15 @@ def test_sensors_from_live_plan():
         tomorrow = DhwPlanDaySensor(current, 1, "Tomorrow")
         assert tomorrow.native_value == "03:15–05:15"
         assert tomorrow.extra_state_attributes["reported_target_temperature"] == 52.9
-        assert DhwPlanDaySensor(current, -1, "Yesterday").native_value == "No planned heating"
+        assert DhwPlanDaySensor(current, -1, "Yesterday").native_value == "No plan available"
+    # Midday on the 18th: today's plan exists, tomorrow's is not published yet (comes at 16:00).
+    with patch("homeassistant.util.dt.utcnow", return_value=utc("2026-11-18T11:00:00")):
+        assert DhwPlanDaySensor(current, 0, "Today").native_value == "03:15–05:15"
+        assert DhwPlanDaySensor(current, 1, "Tomorrow").native_value == "Not yet published"
+    published = [*LIVE, {**LIVE[0], "scheduleStartAt": "2026-11-18T23:00:00Z", "cycles": []}]
+    current.plan.data = parse_plan(published)
+    with patch("homeassistant.util.dt.utcnow", return_value=utc("2026-11-18T15:30:00")):
+        assert DhwPlanDaySensor(current, 1, "Tomorrow").native_value == "No planned heating"
 
 
 def test_sensors_unavailable_outside_intelligence_or_on_failure():
