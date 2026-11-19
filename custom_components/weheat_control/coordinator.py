@@ -54,11 +54,6 @@ def boost_timestamp(value: Json) -> int | None:
     return None
 
 
-# Releases allowed only for re-sendable settings, never for a boost.
-_IDEMPOTENT_RECOVERIES = ("readback_matched", "released_by_user")
-_ALL_RECOVERIES = ("expired_boost_acknowledged", *_IDEMPOTENT_RECOVERIES)
-
-
 class WeheatCoordinator(DataUpdateCoordinator[Settings]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: WeheatApi) -> None:
         super().__init__(hass, _LOGGER, name=DOMAIN, config_entry=entry, update_interval=timedelta(seconds=30))
@@ -79,8 +74,6 @@ class WeheatCoordinator(DataUpdateCoordinator[Settings]):
                 # Explicit local acknowledgement, not an invented upstream result.
                 self.operation["terminal"] = self.operation.get("recovery") == "expired_boost_acknowledged"
             elif self.operation.get("state") == "cancelled_before_submission":
-                self.operation["terminal"] = True
-            elif self.operation.get("recovery") in _IDEMPOTENT_RECOVERIES and self._idempotent_intent():
                 self.operation["terminal"] = True
             elif type(status) is not int or not 2 <= status <= 11:
                 self.operation["terminal"] = False
@@ -112,51 +105,6 @@ class WeheatCoordinator(DataUpdateCoordinator[Settings]):
             and 0 < created <= end <= created + 7200
             and end + 600 <= time.time()
         )
-
-    def _idempotent_intent(self) -> bool:
-        """A non-boost request: sending the same values again cannot do anything extra."""
-        settings = self.operation.get("settings")
-        properties = self.operation.get("properties")
-        return (
-            isinstance(settings, dict)
-            and "DhwBoostEndTime" not in settings
-            and bool(settings or isinstance(properties, dict) and properties)
-        )
-
-    def _requested_readback(self, settings: Settings) -> bool:
-        requested = self.operation.get("settings")
-        properties = self.operation.get("properties")
-        if not isinstance(requested, dict):
-            return False
-        matches = readback_matches(settings, requested)
-        if isinstance(properties, dict) and properties:
-            matches = matches and readback_matches(settings, properties)
-        return matches
-
-    async def async_release_unresolved(self) -> None:
-        """Explicitly unblock a non-boost request whose outcome is unknown. Sends nothing."""
-        if self._write_lock.locked():
-            raise HomeAssistantError("A settings request is already in progress")
-        async with self._write_lock:
-            if not self.operation or self.operation.get("terminal") is True:
-                raise HomeAssistantError("There is no unresolved settings request")
-            if not self._idempotent_intent():
-                raise HomeAssistantError(
-                    "A boost request cannot be released here; use Acknowledge expired uncertain boost"
-                )
-            previous = self.operation
-            self.operation = {
-                **previous,
-                "state": "released",
-                "terminal": True,
-                "recovery": "released_by_user",
-                "released_at": int(time.time()),
-            }
-            try:
-                await self._save_operation()
-            except BaseException:
-                self.operation = previous
-                raise
 
     async def async_acknowledge_expired_boost(self) -> None:
         """Release only an expired ID-less boost; never replay or claim success."""
@@ -236,37 +184,20 @@ class WeheatCoordinator(DataUpdateCoordinator[Settings]):
         try:
             # Polling must not race an operation record being submitted/saved.
             async with self._write_lock:
-                try:
-                    await self._check_operation()
-                except AuthenticationError:
-                    raise
-                except WeheatError:
-                    # A failing status lookup must not block readback recovery of re-sendable settings.
-                    if self.operation.get("terminal") is True or not self._idempotent_intent():
-                        raise
+                await self._check_operation()
                 settings = await self.api.settings(str(self.entry.data[INSTALLATION_ID]))
                 await self._add_comfort_preference(settings)
                 if self.operation.get("state") in ("succeeded_unverified", "mismatch"):
                     requested = self.operation.get("settings")
                     properties = self.operation.get("properties")
                     if isinstance(requested, dict) and (requested or isinstance(properties, dict) and properties):
-                        matches = self._requested_readback(settings)
+                        matches = readback_matches(settings, requested)
+                        if isinstance(properties, dict) and properties:
+                            matches = matches and readback_matches(settings, properties)
                         self.operation["readback_matches"] = matches
                         if matches and self.operation.get("status") == 2:
                             self.operation["state"] = "succeeded"
                         await self._save_operation()
-                elif (
-                    self.operation
-                    and self.operation.get("terminal") is not True
-                    and self._idempotent_intent()
-                    and self._requested_readback(settings)
-                ):
-                    # Unresolved (pending, uncertain) but the device already reports exactly the
-                    # requested values: re-sending would change nothing, so stop blocking writes.
-                    self.operation.update(
-                        state="succeeded", terminal=True, readback_matches=True, recovery="readback_matched"
-                    )
-                    await self._save_operation()
                 return settings
         except AuthenticationError as error:
             raise ConfigEntryAuthFailed(str(error)) from None
@@ -301,7 +232,7 @@ class WeheatCoordinator(DataUpdateCoordinator[Settings]):
                         "Selected control board is no longer accessible or has changed; set up again"
                     )
                 history = self.operation.get("history", [])
-                if self.operation.get("recovery") in _ALL_RECOVERIES:
+                if self.operation.get("recovery") == "expired_boost_acknowledged":
                     history = [*history, {key: value for key, value in self.operation.items() if key != "history"}]
                 self.operation = {
                     "state": "submitting",
